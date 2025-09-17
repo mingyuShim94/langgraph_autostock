@@ -19,11 +19,21 @@ class Settings:
     # API 설정
     OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 
-    # KIS API 설정
+    # KIS API 설정 (실전투자)
     KIS_APP_KEY = os.getenv("KIS_APP_KEY")
     KIS_APP_SECRET = os.getenv("KIS_APP_SECRET")
-    KIS_ACCESS_TOKEN = os.getenv("KIS_ACCESS_TOKEN")
     KIS_ACCOUNT_NUMBER = os.getenv("KIS_ACCOUNT_NUMBER")
+    KIS_ACCOUNT_PRODUCT = os.getenv("KIS_ACCOUNT_PRODUCT", "01")  # 01: 종합계좌
+
+    # KIS API 설정 (모의투자)
+    KIS_PAPER_APP_KEY = os.getenv("KIS_PAPER_APP_KEY")
+    KIS_PAPER_APP_SECRET = os.getenv("KIS_PAPER_APP_SECRET")
+    KIS_PAPER_ACCOUNT_NUMBER = os.getenv("KIS_PAPER_ACCOUNT_NUMBER")
+
+    # KIS API 기타 설정
+    KIS_HTS_ID = os.getenv("KIS_HTS_ID")  # 웹소켓 등에서 필요
+    KIS_ACCESS_TOKEN = os.getenv("KIS_ACCESS_TOKEN", "")  # 런타임 토큰 (동적 생성)
+    KIS_ENVIRONMENT = os.getenv("KIS_ENVIRONMENT", "paper")  # paper or prod
 
     # 뉴스 API 설정
     NAVER_CLIENT_ID = os.getenv("NAVER_CLIENT_ID")
@@ -41,8 +51,10 @@ class Settings:
     NOTIFICATION_EMAIL = os.getenv("NOTIFICATION_EMAIL")
 
     # KIS API 엔드포인트
-    KIS_BASE_URL = "https://openapi.koreainvestment.com:9443"
-    KIS_PAPER_BASE_URL = "https://openapivts.koreainvestment.com:29443"  # 모의투자용
+    KIS_PROD_URL = "https://openapi.koreainvestment.com:9443"      # 실전투자
+    KIS_PAPER_URL = "https://openapivts.koreainvestment.com:29443" # 모의투자
+    KIS_PROD_WS_URL = "ws://ops.koreainvestment.com:21000"        # 실전 웹소켓
+    KIS_PAPER_WS_URL = "ws://ops.koreainvestment.com:31000"       # 모의 웹소켓
 
     # 뉴스 API 엔드포인트
     NAVER_NEWS_API_URL = "https://openapi.naver.com/v1/search/news.json"
@@ -77,14 +89,42 @@ class Settings:
         }
 
     @classmethod
+    def get_kis_config(cls) -> Dict[str, str]:
+        """GitHub kis_auth.py 호환 설정을 반환합니다."""
+        is_paper = cls.KIS_ENVIRONMENT == "paper"
+
+        return {
+            # 앱키 설정
+            "my_app": cls.KIS_PAPER_APP_KEY if is_paper else cls.KIS_APP_KEY,
+            "my_sec": cls.KIS_PAPER_APP_SECRET if is_paper else cls.KIS_APP_SECRET,
+            "paper_app": cls.KIS_PAPER_APP_KEY,
+            "paper_sec": cls.KIS_PAPER_APP_SECRET,
+
+            # 계좌 설정
+            "my_acct_stock": cls.KIS_PAPER_ACCOUNT_NUMBER if is_paper else cls.KIS_ACCOUNT_NUMBER,
+            "my_paper_stock": cls.KIS_PAPER_ACCOUNT_NUMBER,
+            "my_prod": cls.KIS_ACCOUNT_PRODUCT,
+            "my_htsid": cls.KIS_HTS_ID,
+
+            # 도메인 설정
+            "prod": cls.KIS_PROD_URL,
+            "vps": cls.KIS_PAPER_URL,
+            "ops": cls.KIS_PROD_WS_URL,
+            "vops": cls.KIS_PAPER_WS_URL,
+
+            # 기타
+            "my_token": cls.KIS_ACCESS_TOKEN,
+            "my_agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
+        }
+
+    @classmethod
     def get_kis_headers(cls) -> Dict[str, str]:
-        """KIS API 호출용 헤더를 반환합니다."""
+        """KIS API 호출용 기본 헤더를 반환합니다."""
         return {
             "Content-Type": "application/json",
-            "authorization": f"Bearer {cls.KIS_ACCESS_TOKEN}",
-            "appkey": cls.KIS_APP_KEY,
-            "appsecret": cls.KIS_APP_SECRET,
-            "tr_id": "",  # 거래 ID는 각 API 호출시 설정
+            "Accept": "text/plain",
+            "charset": "UTF-8",
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
         }
 
     @classmethod

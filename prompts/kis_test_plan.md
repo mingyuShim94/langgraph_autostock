@@ -9,28 +9,28 @@
 ## Phase 1: KIS API 기본 연결 테스트 환경 구축
 
 ### 1.1 GitHub 샘플코드 분석 및 이해
-- [ ] `open-trading-api-main/examples_llm/kis_auth.py` 상세 분석
-- [ ] 인증 토큰 발급 로직 이해 (`auth()` 함수)
-- [ ] API 호출 공통 함수 이해 (`_url_fetch()` 함수)
-- [ ] 환경 설정 구조 이해 (`kis_devlp.yaml` 형식)
+- [x] `open-trading-api-main/examples_llm/kis_auth.py` 상세 분석
+- [x] 인증 토큰 발급 로직 이해 (`auth()` 함수)
+- [x] API 호출 공통 함수 이해 (`_url_fetch()` 함수)
+- [x] 환경 설정 구조 이해 (`kis_devlp.yaml` 형식)
 
 ### 1.2 테스트 환경 설정
-- [ ] KIS API 모의투자 계정 신청 확인
-- [ ] `config/kis_config.yaml` 테스트용 설정 파일 생성
-- [ ] 기존 `config/settings.py`에 KIS API 설정 통합
-- [ ] 테스트용 환경변수 `.env` 업데이트
+- [x] KIS API 모의투자 계정 신청 확인 (설정 가이드 작성)
+- [x] GitHub 호환 설정 시스템 구축 (`get_kis_config()` 메서드)
+- [x] 기존 `config/settings.py`에 KIS API 설정 통합
+- [x] 테스트용 환경변수 `.env` 업데이트
 
 ### 1.3 기본 인증 테스트 스크립트 작성
-- [ ] `tests/test_kis_auth.py` 생성 - 인증 테스트
-- [ ] 토큰 발급 기능 테스트
-- [ ] 토큰 저장/읽기 기능 테스트
-- [ ] 연결 상태 확인 기능 테스트
+- [x] `tests/test_kis_auth.py` 생성 - 인증 테스트
+- [x] 토큰 발급 기능 테스트 (Mock 토큰 포함)
+- [x] 토큰 저장/읽기 기능 테스트
+- [x] 연결 상태 확인 기능 테스트
 
 ### 1.4 API 호출 기본 인프라 테스트
-- [ ] 기본 헤더 설정 테스트
-- [ ] Rate limiting 및 지연 처리 테스트
-- [ ] 에러 응답 처리 테스트
-- [ ] 재시도 로직 테스트
+- [x] 기본 헤더 설정 테스트
+- [x] Rate limiting 및 지연 처리 테스트
+- [x] 에러 응답 처리 테스트 (Mock)
+- [x] 재시도 로직 테스트 (구조 검증)
 
 ---
 
