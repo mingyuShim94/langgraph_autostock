@@ -6,7 +6,7 @@ import uuid
 from datetime import datetime
 from typing import Dict, Any
 from langgraph.graph import StateGraph, END
-from state import ObserverState, create_initial_state
+from .state import ObserverState, create_initial_state
 
 # 노드 함수들 (현재는 스텁으로 구현)
 def fetch_portfolio_status(state: ObserverState) -> ObserverState:
@@ -20,19 +20,35 @@ def fetch_portfolio_status(state: ObserverState) -> ObserverState:
         # 현재 단계 업데이트
         state["current_step"] = "fetching_portfolio"
 
-        # TODO: 실제 KIS API 호출 로직 구현
-        # 현재는 목업 데이터로 대체
-        print("   💼 증권사 API 연결...")
-        print("   📈 포트폴리오 정보 조회...")
-        print("   ✅ 포트폴리오 데이터 수집 완료")
+        # KIS API를 통한 실제 포트폴리오 조회
+        from .kis_client import fetch_portfolio_status as kis_fetch_portfolio, KISAPIError
 
-        # 임시: 빈 포트폴리오 상태로 설정
-        # 실제 구현시에는 API 응답을 파싱하여 PortfolioStatus 객체 생성
-        state["portfolio_status"] = None  # Phase 3에서 구현 예정
-        state["current_step"] = "portfolio_fetched"
+        print("   💼 KIS API 연결...")
+        print("   📈 포트폴리오 정보 조회...")
+
+        # 설정에서 환경 정보 가져오기 (기본값: paper)
+        environment = state.get("config", {}).get("environment", "paper")
+
+        # KIS API 호출
+        portfolio_data = kis_fetch_portfolio(environment)
+
+        print(f"   ✅ 포트폴리오 데이터 수집 완료")
+        print(f"      - 총자산: {portfolio_data.total_asset:,.0f}원")
+        print(f"      - 현금잔고: {portfolio_data.cash_balance:,.0f}원")
+        print(f"      - 보유종목: {len(portfolio_data.stocks)}개")
+
+        # 상태 업데이트
+        from .state import update_portfolio_status
+        state = update_portfolio_status(state, portfolio_data)
 
         return state
 
+    except KISAPIError as e:
+        print(f"   ❌ KIS API 오류: {e.message}")
+        state["error_message"] = f"KIS API 오류: {e.message}"
+        state["current_step"] = "portfolio_fetch_error"
+        state["status"] = "error"
+        return state
     except Exception as e:
         print(f"   ❌ 계좌 상태 조회 실패: {e}")
         state["error_message"] = f"계좌 상태 조회 실패: {e}"
