@@ -3582,7 +3582,7 @@ def inquire_account_balance(
     if acnt_prdt_cd == "":
         raise ValueError("acnt_prdt_cd is required (e.g. '19' or '21')")
 
-    tr_id = "CTRP6548R"  # 투자계좌자산현황조회
+    tr_id = "CTRP6548R"  # 투자계좌자산현황조회 (KIS API가 자동으로 환경별 변환)
 
     params = {
         "CANO": cano,  # 종합계좌번호

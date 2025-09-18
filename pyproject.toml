@@ -1,0 +1,25 @@
+[project]
+name = "langgraph-study"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.13"
+dependencies = [
+    # KIS API 호환 패키지들
+    "pandas>=2.3.1",
+    "numpy>=2.3.1", 
+    "pycryptodome>=3.23.0",
+    "pyyaml>=6.0.2",
+    "requests>=2.32.4",
+    "websockets>=15.0.1",
+    "python-dateutil>=2.9.0",
+    "pytz>=2025.2",
+    "tzdata>=2025.2",
+    
+    # AI 트레이딩 시스템 패키지들
+    "langchain>=0.1.0",
+    "langgraph>=0.1.0",
+    "openai>=1.0.0", 
+    "schedule>=1.2.0",
+    "pydantic>=2.0.0",
+]
