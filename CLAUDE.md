@@ -4,76 +4,176 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-This is a LangGraph study repository containing documentation and conceptual materials for learning LangGraph framework for building AI systems, particularly focused on autonomous trading systems.
+This is a **LangGraph-based autonomous trading system implementation** repository that demonstrates progressive AI agent development through 5 complexity levels. Currently implements **LV1 Observer** pattern with Korean Investment & Securities (KIS) API integration for real-time portfolio monitoring and news analysis.
 
-## Architecture and Design Philosophy
+## Commands and Development
 
-### Core System Architecture
-The repository documents a **self-learning autonomous trading system** that operates as two interconnected LangGraph workflows:
+### Environment Setup
+```bash
+# Install dependencies
+pip install -r requirements.txt
 
-1. **Trading Graph (Operational Loop)** - Real-time trading execution that runs hourly/daily:
-   - Portfolio diagnosis and market analysis
-   - Decision-making with justification recording
-   - Risk validation and order execution
-   - Comprehensive trade logging to central database
-
-2. **Reflection & Improvement Graph (Learning Loop)** - Weekly learning cycle:
-   - Performance data aggregation and analysis
-   - Success/failure pattern identification
-   - Strategy rule generation from insights
-   - Automatic system logic updates
-
-### Key Design Patterns
-
-**Self-Evolution**: The system learns from past trades by analyzing recorded decision justifications and outcomes, then automatically updates its core decision-making prompts.
-
-**Database-Centric Memory**: All trading decisions, market context, and justifications are stored in a central database that serves as the system's memory and learning foundation.
-
-**LangGraph Progression Levels** (from documentation):
-- **LV 1**: Simple sequential flows (Observer pattern)
-- **LV 2**: Conditional branching (Rule-Follower pattern)
-- **LV 3**: Multi-agent analysis (Strategist pattern)
-- **LV 4**: Portfolio management (Fund Manager pattern)
-- **LV 5**: Self-learning cycles (Master pattern)
-
-## Development Context
-
-This appears to be a **documentation and design repository** rather than an implementation repository. No actual code files, build scripts, or dependencies were found.
-
-### Repository Structure
-```
-docs/
-├── all_architecture.md      # Complete system architecture
-├── dev_guide.md            # 5-level LangGraph development guide
-└── langgraph_easy_concept.md # LangGraph concepts and patterns
+# Set up environment variables (create .env file)
+cp .env.example .env  # Then edit with your API keys
 ```
 
-## LangGraph Framework Concepts
+### Running the System
+```bash
+# Run LV1 Observer (main entry point)
+python src/graph.py
 
-### Core Components
-- **Nodes**: Individual processing units (portfolio analysis, market analysis, etc.)
-- **Edges**: Flow control between nodes (sequential, conditional, cyclical)
-- **State**: Shared data object passed between nodes
-- **Conditional Edges**: Dynamic routing based on state conditions
-- **Human-in-the-Loop**: Interrupts for user input integration
+# Run individual tests
+pytest tests/test_langgraph_integration.py
+pytest tests/test_kis_client.py
+pytest tests/test_news_perplexity.py
 
-### Advanced Patterns
-- **Multi-Agent Systems**: Multiple specialized agents coordinated by supervisors
-- **Cyclical Flows**: Loops for iterative improvement (reflection cycles)
-- **Memory Integration**: Database-backed persistent memory across sessions
-- **Self-Modification**: Systems that update their own logic based on performance
+# Debug KIS API connection
+python tests/debug_kis_api.py
+```
 
-## Working with This Repository
+### Common Development Tasks
+- **Adding new nodes**: Extend `src/graph.py` with new node functions
+- **Modifying state**: Update schemas in `src/state.py`
+- **API integrations**: Add clients in `src/` (following `kis_client.py` pattern)
+- **Testing**: Create tests in `tests/` directory
 
-Since this is a documentation repository:
-- Focus on understanding the architectural concepts
-- Use the progression levels (LV 1-5) as implementation guidelines
-- The trading system design serves as a comprehensive LangGraph application example
-- Consider the database schema and dual-graph architecture when implementing similar systems
+## Architecture and Core Components
 
-## Key Insights for Implementation
+### Current Implementation (LV1 Observer)
+The system operates as a **sequential LangGraph workflow**:
 
-1. **Database Design**: Critical for self-learning systems - must capture decision justifications and market context
-2. **Graph Separation**: Separate operational and learning workflows for clear responsibility boundaries
-3. **Progressive Complexity**: Build systems incrementally following the 5-level progression
-4. **Memory Persistence**: Essential for systems that need to learn and improve over time
+1. **Portfolio Fetching** (`fetch_portfolio_status`): KIS API integration for real-time account data
+2. **News Collection** (`collect_news_data`): Perplexity AI for stock-specific news analysis
+3. **Report Generation** (`generate_daily_report`): AI-powered portfolio briefing
+
+### State Management (`src/state.py`)
+- **ObserverState**: Central TypedDict managing workflow state
+- **PortfolioStatus**: Real-time account and holdings data
+- **NewsData**: AI-processed news with sentiment analysis
+- **Pydantic Models**: Type-safe data validation throughout
+
+### Key Classes and Files
+- **`src/graph.py`**: Main LangGraph workflow definition and execution
+- **`src/state.py`**: State schemas and update functions  
+- **`src/kis_client.py`**: KIS API wrapper with authentication
+- **`src/news_processor.py`**: Perplexity AI news analysis
+- **`config/settings.py`**: Centralized configuration management
+
+## API Integrations
+
+### KIS (Korea Investment & Securities) API
+- **Environment**: Supports both paper trading (`KIS_ENVIRONMENT=paper`) and production
+- **Authentication**: Automatic token management via `src/kis_auth.py`
+- **Configuration**: All credentials managed through `config/settings.py`
+
+### News APIs
+- **Perplexity AI**: Real-time news search and analysis
+- **Naver News**: Korean market news (optional)
+- **Features**: Sentiment analysis, relevance scoring, importance ranking
+
+### LLM APIs
+- **OpenAI**: GPT models for analysis and reporting
+- **Google Gemini**: Alternative LLM provider (configured but not actively used)
+
+## Development Progression (5-Level System)
+
+### Implemented: LV1 Observer Pattern
+- **Goal**: Portfolio monitoring and news briefing
+- **Pattern**: Sequential node execution (`A → B → C`)
+- **Features**: Data collection, analysis, reporting
+
+### Planned: LV2+ Patterns
+- **LV2 Rule-Follower**: Conditional trading based on technical indicators
+- **LV3 Strategist**: Multi-agent analysis with consensus decisions
+- **LV4 Fund Manager**: Portfolio optimization and risk management
+- **LV5 Master**: Self-learning system with performance feedback loops
+
+## Configuration and Environment
+
+### Required Environment Variables
+```bash
+# Core APIs
+OPENAI_API_KEY=your_openai_key
+PERPLEXITY_API_KEY=your_perplexity_key
+
+# KIS Trading API (Paper Trading)
+KIS_PAPER_APP_KEY=your_paper_app_key
+KIS_PAPER_APP_SECRET=your_paper_secret
+KIS_PAPER_ACCOUNT_NUMBER=your_paper_account
+
+# Optional: Production KIS API
+KIS_APP_KEY=your_production_key
+KIS_APP_SECRET=your_production_secret
+KIS_ACCOUNT_NUMBER=your_production_account
+```
+
+### Configuration Pattern
+- All settings centralized in `config/settings.py`
+- Environment-aware (development/production)
+- Automatic validation of required credentials
+- KIS-compatible configuration format
+
+## Error Handling and Logging
+
+### Exception Hierarchy
+- **`src/exceptions.py`**: Custom exception classes
+- **KISAPIError**: Specific to trading API failures
+- **NewsAPIError**: News collection failures
+
+### Logging Strategy
+- **`src/logging_config.py`**: Centralized logging setup
+- **File logging**: `logs/` directory for persistence
+- **Console output**: Real-time execution feedback
+
+## Testing Strategy
+
+### Test Categories
+- **Integration tests**: Full workflow testing (`test_langgraph_integration.py`)
+- **API tests**: Individual service testing (`test_kis_client.py`, `test_news_perplexity.py`)
+- **Auth tests**: Credential and token management
+- **Mock tests**: Virtual trading simulation
+
+### Running Tests
+```bash
+# All tests
+pytest
+
+# Specific test categories
+pytest tests/test_kis_* -v
+pytest tests/test_news_* -v
+pytest tests/test_langgraph_* -v
+```
+
+## Key Development Patterns
+
+### LangGraph Node Development
+1. **Function signature**: `def node_name(state: ObserverState) -> ObserverState`
+2. **State updates**: Use helper functions from `src/state.py`
+3. **Error handling**: Catch exceptions and update state with error info
+4. **Logging**: Print step-by-step progress for debugging
+
+### Adding New APIs
+1. **Client class**: Create in `src/` following `kis_client.py` pattern
+2. **Configuration**: Add settings to `config/settings.py`
+3. **State integration**: Update state schemas in `src/state.py`
+4. **Error handling**: Add custom exceptions to `src/exceptions.py`
+
+### Progressive Enhancement
+- Start with stub implementations for new features
+- Add real API integrations incrementally
+- Maintain backward compatibility with existing nodes
+- Follow the 5-level progression model for complexity
+
+## Security and Credentials
+
+### API Key Management
+- **Never commit credentials** to repository
+- **Use .env files** for local development
+- **Environment variables** for production deployment
+- **Validation checks** in settings for missing credentials
+
+### Trading Safety
+- **Paper trading default**: All trading starts in simulation mode
+- **Explicit production mode**: Must set `KIS_ENVIRONMENT=prod`
+- **Credential separation**: Different keys for paper vs production
+- **Amount limits**: Built-in safeguards for order sizes

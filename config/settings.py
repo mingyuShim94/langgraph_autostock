@@ -18,6 +18,7 @@ class Settings:
 
     # API 설정
     OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
+    GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 
     # KIS API 설정 (실전투자)
     KIS_APP_KEY = os.getenv("KIS_APP_KEY")
@@ -38,6 +39,16 @@ class Settings:
     # 뉴스 API 설정
     NAVER_CLIENT_ID = os.getenv("NAVER_CLIENT_ID")
     NAVER_CLIENT_SECRET = os.getenv("NAVER_CLIENT_SECRET")
+
+    # Perplexity AI API 설정
+    PERPLEXITY_API_KEY = os.getenv("PERPLEXITY_API_KEY")
+    PERPLEXITY_MODEL = "sonar-pro"  # 실시간 검색 가능한 모델
+    PERPLEXITY_API_URL = "https://api.perplexity.ai/chat/completions"
+
+    # Gemini AI API 설정
+    GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
+    GEMINI_MODEL = "gemini-1.5-flash"  # 빠르고 효율적인 모델
+    GEMINI_API_URL = "https://generativelanguage.googleapis.com/v1beta/models"
 
     # 애플리케이션 설정
     DEFAULT_CURRENCY = os.getenv("DEFAULT_CURRENCY", "KRW")
@@ -133,6 +144,43 @@ class Settings:
         return {
             "X-Naver-Client-Id": cls.NAVER_CLIENT_ID,
             "X-Naver-Client-Secret": cls.NAVER_CLIENT_SECRET,
+        }
+
+    @classmethod
+    def get_perplexity_headers(cls) -> Dict[str, str]:
+        """Perplexity AI API 호출용 헤더를 반환합니다."""
+        return {
+            "Authorization": f"Bearer {cls.PERPLEXITY_API_KEY}",
+            "Content-Type": "application/json"
+        }
+
+    @classmethod
+    def validate_perplexity_settings(cls) -> Dict[str, Any]:
+        """Perplexity API 설정을 검증합니다."""
+        is_valid = cls.PERPLEXITY_API_KEY and not cls.PERPLEXITY_API_KEY.startswith("your_")
+
+        return {
+            "is_valid": is_valid,
+            "api_key_configured": bool(cls.PERPLEXITY_API_KEY),
+            "model": cls.PERPLEXITY_MODEL
+        }
+
+    @classmethod
+    def get_gemini_headers(cls) -> Dict[str, str]:
+        """Gemini AI API 호출용 헤더를 반환합니다."""
+        return {
+            "Content-Type": "application/json"
+        }
+
+    @classmethod
+    def validate_gemini_settings(cls) -> Dict[str, Any]:
+        """Gemini API 설정을 검증합니다."""
+        is_valid = cls.GEMINI_API_KEY and not cls.GEMINI_API_KEY.startswith("your_")
+
+        return {
+            "is_valid": is_valid,
+            "api_key_configured": bool(cls.GEMINI_API_KEY),
+            "model": cls.GEMINI_MODEL
         }
 
 # 전역 설정 인스턴스
