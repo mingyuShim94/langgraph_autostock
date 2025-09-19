@@ -24,19 +24,16 @@ from .exceptions import (
 class PerplexityClient(BaseAgentLLM):
     """Perplexity LLM 클라이언트"""
     
-    # 지원하는 Perplexity 모델들
+    # 지원하는 Perplexity 모델들 (실제 사용 가능한 모델만)
     SUPPORTED_MODELS = {
-        'sonar-pro': 'llama-3.1-sonar-large-128k-online',
-        'sonar-large': 'llama-3.1-sonar-large-128k-online',
-        'sonar-small': 'llama-3.1-sonar-small-128k-online',
-        'sonar-huge': 'llama-3.1-sonar-huge-128k-online'  # 향후 출시 예정
+        'sonar-pro': 'sonar-pro',
+        'sonar': 'sonar'
     }
     
     # 모델별 토큰 가격 (USD per 1K tokens) - 추정값
     MODEL_PRICING = {
-        'llama-3.1-sonar-large-128k-online': {'input': 0.001, 'output': 0.001},
-        'llama-3.1-sonar-small-128k-online': {'input': 0.0002, 'output': 0.0002},
-        'llama-3.1-sonar-huge-128k-online': {'input': 0.002, 'output': 0.002}
+        'sonar-pro': {'input': 0.001, 'output': 0.001},
+        'sonar': {'input': 0.0005, 'output': 0.0005}
     }
     
     def __init__(self, model_name: str, api_key: str, **config):
@@ -48,16 +45,17 @@ class PerplexityClient(BaseAgentLLM):
             api_key: Perplexity API 키
             **config: 추가 설정 (max_tokens, temperature 등)
         """
-        super().__init__("perplexity", model_name, api_key, **config)
-        
-        # API 엔드포인트
-        self.api_url = "https://api.perplexity.ai/chat/completions"
-        
-        # 실제 모델명 매핑
+        # 실제 모델명 매핑 먼저 설정
         if model_name not in self.SUPPORTED_MODELS:
             raise ModelNotSupportedError("perplexity", model_name)
         
         self.actual_model_name = self.SUPPORTED_MODELS[model_name]
+        
+        # API 엔드포인트
+        self.api_url = "https://api.perplexity.ai/chat/completions"
+        
+        # 부모 클래스 초기화 (validate_config 호출됨)
+        super().__init__("perplexity", model_name, api_key, **config)
         
         # 기본 설정
         self.default_max_tokens = config.get('max_tokens', 4000)
@@ -77,33 +75,8 @@ class PerplexityClient(BaseAgentLLM):
         if self.model_name not in self.SUPPORTED_MODELS:
             raise ConfigurationError("perplexity", f"지원하지 않는 모델: {self.model_name}")
         
-        # API 키 유효성 간단 체크
-        try:
-            test_payload = {
-                "model": self.actual_model_name,
-                "messages": [{"role": "user", "content": "Hello"}],
-                "max_tokens": 10,
-                "temperature": 0.1
-            }
-            
-            response = requests.post(
-                self.api_url,
-                headers=self.headers,
-                json=test_payload,
-                timeout=10
-            )
-            
-            if response.status_code == 401:
-                raise ConfigurationError("perplexity", "유효하지 않은 API 키")
-            elif response.status_code not in [200, 429]:  # 429는 rate limit으로 일시적
-                raise ConfigurationError("perplexity", f"API 테스트 실패: {response.status_code}")
-            
-            return True
-            
-        except requests.exceptions.RequestException as e:
-            # 네트워크 오류 등은 일시적일 수 있으므로 경고만 출력
-            print(f"Perplexity API 연결 확인 실패 (일시적일 수 있음): {e}")
-            return True
+        # API 키 유효성 간단 체크는 실제 사용할 때 검증
+        return True
     
     def get_supported_models(self) -> List[str]:
         """지원하는 Perplexity 모델 목록 반환"""
@@ -132,28 +105,28 @@ class PerplexityClient(BaseAgentLLM):
         start_time = time.time()
         
         try:
-            # 메시지 구성
-            messages = []
-            
+            # 메시지 구성 (시스템 프롬프트와 사용자 프롬프트 결합)
+            user_content = request.prompt
             if request.system_prompt:
-                messages.append({"role": "system", "content": request.system_prompt})
+                user_content = f"{request.system_prompt}\n\n{request.prompt}"
             
             # 섹터 리서치의 경우 실시간 검색을 위한 프롬프트 최적화
-            optimized_prompt = self._optimize_prompt_for_search(request.prompt, request.agent_type)
-            messages.append({"role": "user", "content": optimized_prompt})
+            optimized_prompt = self._optimize_prompt_for_search(user_content, request.agent_type)
             
-            # API 요청 페이로드
+            # 기본 페이로드 (필수 파라미터만)
             payload = {
                 "model": self.actual_model_name,
-                "messages": messages,
-                "max_tokens": request.max_tokens or self.default_max_tokens,
-                "temperature": request.temperature or self.default_temperature
+                "messages": [
+                    {"role": "user", "content": optimized_prompt}
+                ]
             }
             
-            # 에이전트 타입별 특별 설정
-            if request.agent_type == "sector_researcher":
-                # 섹터 리서치는 더 많은 검색 결과가 필요할 수 있음
-                payload["temperature"] = 0.2  # 더 정확한 팩트 체크
+            # 옵셔널 파라미터 조건부 추가
+            if request.max_tokens:
+                payload["max_tokens"] = min(request.max_tokens, 4000)  # Perplexity 한도
+            
+            if request.temperature is not None:
+                payload["temperature"] = max(0.0, min(request.temperature, 1.0))  # 범위 제한
             
             # Perplexity API 호출
             response = requests.post(
@@ -220,7 +193,15 @@ class PerplexityClient(BaseAgentLLM):
                 
             else:
                 self.update_usage_stats(None, success=False)
-                raise APIConnectionError("perplexity", f"API 요청 실패: {response.status_code}")
+                # 디버깅을 위한 상세 에러 정보
+                error_detail = ""
+                try:
+                    error_response = response.json()
+                    error_detail = f" - {error_response}"
+                except:
+                    error_detail = f" - {response.text[:200]}"
+                
+                raise APIConnectionError("perplexity", f"API 요청 실패: {response.status_code}{error_detail}")
                 
         except requests.exceptions.Timeout:
             self.update_usage_stats(None, success=False)

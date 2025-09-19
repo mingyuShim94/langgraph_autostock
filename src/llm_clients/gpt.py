@@ -25,17 +25,21 @@ class GPTClient(BaseAgentLLM):
     
     # 지원하는 GPT 모델들
     SUPPORTED_MODELS = {
-        'gpt-5': 'gpt-4o',  # GPT-5가 출시되면 실제 모델명으로 업데이트 필요
-        'gpt-4o': 'gpt-4o',
+        'gpt-5': 'gpt-5',           # 최신 GPT-5 모델
+        'gpt-5-nano': 'gpt-5-nano', # 빠른 처리용 경량 모델
+        'gpt-5-mini': 'gpt-5-mini', # 중간 성능 모델
+        'gpt-4o': 'gpt-4o',         # 기존 GPT-4o 호환성 유지
         'gpt-4': 'gpt-4-turbo-preview',
         'gpt-4-turbo': 'gpt-4-turbo-preview',
-        'gpt-5-nano': 'gpt-4o-mini',  # 빠른 처리용 경량 모델
         'gpt-4o-mini': 'gpt-4o-mini'
     }
     
-    # 모델별 토큰 가격 (USD per 1K tokens) - 2024년 기준
+    # 모델별 토큰 가격 (USD per 1K tokens) - 2025년 기준
     MODEL_PRICING = {
-        'gpt-4o': {'input': 0.005, 'output': 0.015},
+        'gpt-5': {'input': 0.01, 'output': 0.03},        # GPT-5 프리미엄 모델
+        'gpt-5-nano': {'input': 0.0002, 'output': 0.0008}, # 경량 모델
+        'gpt-5-mini': {'input': 0.001, 'output': 0.003},   # 중간 모델
+        'gpt-4o': {'input': 0.005, 'output': 0.015},      # 기존 GPT-4o
         'gpt-4-turbo-preview': {'input': 0.01, 'output': 0.03},
         'gpt-4o-mini': {'input': 0.00015, 'output': 0.0006}
     }
@@ -64,8 +68,8 @@ class GPTClient(BaseAgentLLM):
         self.default_max_tokens = config.get('max_tokens', 4000)
         self.default_temperature = config.get('temperature', 0.7)
         
-        # GPT-5 nano는 더 빠른 응답을 위해 낮은 temperature 사용
-        if 'nano' in model_name:
+        # GPT-5 경량 모델들은 더 빠른 응답을 위해 낮은 temperature 사용
+        if 'nano' in model_name or 'mini' in model_name:
             self.default_temperature = 0.3
     
     def validate_config(self) -> bool:
@@ -76,21 +80,8 @@ class GPTClient(BaseAgentLLM):
         if self.model_name not in self.SUPPORTED_MODELS:
             raise ConfigurationError("gpt", f"지원하지 않는 모델: {self.model_name}")
         
-        # API 키 유효성 간단 체크
-        try:
-            # 테스트 요청으로 API 키 검증
-            response = self.client.chat.completions.create(
-                model=self.actual_model_name,
-                max_tokens=10,
-                messages=[{"role": "user", "content": "Hello"}]
-            )
-            return True
-        except openai.AuthenticationError:
-            raise ConfigurationError("gpt", "유효하지 않은 API 키")
-        except Exception as e:
-            # 네트워크 오류 등은 일시적일 수 있으므로 경고만 출력
-            print(f"OpenAI API 연결 확인 실패 (일시적일 수 있음): {e}")
-            return True
+        # API 키 유효성 간단 체크는 실제 사용할 때 검증
+        return True
     
     def get_supported_models(self) -> List[str]:
         """지원하는 GPT 모델 목록 반환"""
@@ -119,44 +110,127 @@ class GPTClient(BaseAgentLLM):
         start_time = time.time()
         
         try:
-            # 메시지 구성
-            messages = []
+            # GPT-5 모델 체크
+            is_gpt5_model = self.actual_model_name.startswith('gpt-5')
             
-            if request.system_prompt:
-                messages.append({"role": "system", "content": request.system_prompt})
-            
-            messages.append({"role": "user", "content": request.prompt})
-            
-            # API 호출 파라미터
-            kwargs = {
-                "model": self.actual_model_name,
-                "max_tokens": request.max_tokens or self.default_max_tokens,
-                "temperature": request.temperature or self.default_temperature,
-                "messages": messages
-            }
-            
-            # 에이전트 타입별 특별 설정
-            if request.agent_type == "technical_analyst":
-                # 기술적 분석은 더 정확한 수치 계산이 필요
-                kwargs["temperature"] = 0.2
-            elif request.agent_type in ["portfolio_rebalancer", "trade_planner"]:
-                # 포트폴리오 관련 작업은 일관성이 중요
-                kwargs["temperature"] = 0.1
-            
-            # OpenAI API 호출
-            response = self.client.chat.completions.create(**kwargs)
+            if is_gpt5_model:
+                # 새로운 GPT-5 API 구조
+                # 메시지 구성 (새로운 input 형식)
+                input_messages = []
+                
+                # 시스템 프롬프트가 있는 경우 user 메시지에 통합
+                user_content = request.prompt
+                if request.system_prompt:
+                    user_content = f"{request.system_prompt}\n\n{request.prompt}"
+                
+                input_messages.append({
+                    "role": "user",
+                    "content": [
+                        {
+                            "type": "input_text",
+                            "text": user_content
+                        }
+                    ]
+                })
+                
+                # 에이전트 타입별 reasoning effort 설정
+                reasoning_effort = "medium"  # 기본값
+                text_verbosity = "medium"    # 기본값
+                
+                if request.agent_type == "technical_analyst":
+                    reasoning_effort = "high"    # 정확한 수치 계산 필요
+                    text_verbosity = "high"
+                elif request.agent_type in ["portfolio_rebalancer", "trade_planner"]:
+                    reasoning_effort = "high"    # 일관성과 정확성 중요
+                    text_verbosity = "medium"
+                elif request.agent_type in ["screener", "fundamental_fetcher"]:
+                    reasoning_effort = "low"     # 빠른 처리 우선
+                    text_verbosity = "low"
+                
+                # API 호출 파라미터 (새로운 GPT-5 형식)
+                kwargs = {
+                    "model": self.actual_model_name,
+                    "input": input_messages,
+                    "text": {
+                        "format": {
+                            "type": "text"
+                        },
+                        "verbosity": text_verbosity
+                    },
+                    "reasoning": {
+                        "effort": reasoning_effort
+                    },
+                    "tools": [],
+                    "store": True,
+                    "include": [
+                        "reasoning.encrypted_content"
+                    ]
+                }
+                
+                # OpenAI GPT-5 API 호출
+                response = self.client.responses.create(**kwargs)
+                
+            else:
+                # 기존 GPT-4 API 구조 유지
+                messages = []
+                
+                if request.system_prompt:
+                    messages.append({"role": "system", "content": request.system_prompt})
+                
+                messages.append({"role": "user", "content": request.prompt})
+                
+                # API 호출 파라미터
+                kwargs = {
+                    "model": self.actual_model_name,
+                    "max_tokens": request.max_tokens or self.default_max_tokens,
+                    "temperature": request.temperature or self.default_temperature,
+                    "messages": messages
+                }
+                
+                # 에이전트 타입별 특별 설정
+                if request.agent_type == "technical_analyst":
+                    kwargs["temperature"] = 0.2
+                elif request.agent_type in ["portfolio_rebalancer", "trade_planner"]:
+                    kwargs["temperature"] = 0.1
+                
+                # OpenAI API 호출
+                response = self.client.chat.completions.create(**kwargs)
             
             end_time = time.time()
             response_time = end_time - start_time
             
-            # 응답 내용 추출
-            content = response.choices[0].message.content or ""
-            
-            # 토큰 사용량 및 비용 계산
-            usage = response.usage
-            input_tokens = usage.prompt_tokens
-            output_tokens = usage.completion_tokens
-            total_tokens = usage.total_tokens
+            # 응답 내용 추출 (GPT-5 vs GPT-4 구분)
+            if is_gpt5_model:
+                # GPT-5 새로운 응답 구조
+                content = ""
+                if hasattr(response, 'choices') and response.choices:
+                    # GPT-5 응답에서 content 추출 (구조가 변경될 수 있음)
+                    choice = response.choices[0]
+                    if hasattr(choice, 'message') and hasattr(choice.message, 'content'):
+                        content = choice.message.content or ""
+                    elif hasattr(choice, 'text'):
+                        content = choice.text or ""
+                
+                # GPT-5 토큰 사용량 (응답 구조에 따라 조정 필요)
+                if hasattr(response, 'usage'):
+                    usage = response.usage
+                    input_tokens = getattr(usage, 'prompt_tokens', 0) or getattr(usage, 'input_tokens', 0)
+                    output_tokens = getattr(usage, 'completion_tokens', 0) or getattr(usage, 'output_tokens', 0)
+                    total_tokens = input_tokens + output_tokens
+                else:
+                    # 토큰 사용량 추정
+                    input_tokens = self._estimate_tokens(user_content)
+                    output_tokens = self._estimate_tokens(content)
+                    total_tokens = input_tokens + output_tokens
+            else:
+                # 기존 GPT-4 응답 구조
+                content = response.choices[0].message.content or ""
+                
+                # 토큰 사용량 및 비용 계산
+                usage = response.usage
+                input_tokens = usage.prompt_tokens
+                output_tokens = usage.completion_tokens
+                total_tokens = usage.total_tokens
             
             pricing = self.MODEL_PRICING.get(self.actual_model_name, {'input': 0.005, 'output': 0.015})
             cost = ((input_tokens / 1000) * pricing['input'] + 
@@ -165,6 +239,26 @@ class GPTClient(BaseAgentLLM):
             # 응답 품질 검증
             confidence_score = self._calculate_confidence_score(content, request)
             
+            # 메타데이터 구성 (GPT-5 vs GPT-4 구분)
+            metadata = {
+                'input_tokens': input_tokens,
+                'output_tokens': output_tokens,
+                'model_alias': self.model_name,
+                'api_version': 'gpt-5' if is_gpt5_model else 'gpt-4'
+            }
+            
+            if is_gpt5_model:
+                metadata.update({
+                    'reasoning_effort': reasoning_effort,
+                    'text_verbosity': text_verbosity,
+                    'has_reasoning': True
+                })
+            else:
+                metadata.update({
+                    'finish_reason': response.choices[0].finish_reason,
+                    'temperature': kwargs.get('temperature', self.default_temperature)
+                })
+            
             llm_response = LLMResponse(
                 content=content,
                 model_used=self.actual_model_name,
@@ -172,12 +266,7 @@ class GPTClient(BaseAgentLLM):
                 cost=cost,
                 response_time=response_time,
                 confidence_score=confidence_score,
-                metadata={
-                    'input_tokens': input_tokens,
-                    'output_tokens': output_tokens,
-                    'finish_reason': response.choices[0].finish_reason,
-                    'model_alias': self.model_name
-                }
+                metadata=metadata
             )
             
             # 사용량 통계 업데이트
@@ -248,15 +337,26 @@ class GPTClient(BaseAgentLLM):
         
         return min(score, 1.0)
     
+    def _estimate_tokens(self, text: str) -> int:
+        """텍스트의 토큰 수 추정 (GPT-5용)"""
+        # 대략적인 토큰 수 계산 (1 token ≈ 0.75 words)
+        word_count = len(text.split())
+        return int(word_count / 0.75)
+    
     def get_model_info(self) -> Dict[str, Any]:
         """현재 사용 중인 모델 정보 반환"""
         context_lengths = {
+            'gpt-5': 200000,              # GPT-5 확장된 컨텍스트
+            'gpt-5-nano': 128000,         # 경량 모델
+            'gpt-5-mini': 128000,         # 중간 모델
             'gpt-4o': 128000,
             'gpt-4-turbo-preview': 128000,
             'gpt-4o-mini': 128000
         }
         
-        return {
+        is_gpt5_model = self.actual_model_name.startswith('gpt-5')
+        
+        info = {
             'provider': self.provider_name,
             'model_alias': self.model_name,
             'actual_model': self.actual_model_name,
@@ -264,5 +364,17 @@ class GPTClient(BaseAgentLLM):
             'max_context_length': context_lengths.get(self.actual_model_name, 128000),
             'supports_system_prompt': True,
             'supports_function_calling': True,
-            'is_nano_version': 'nano' in self.model_name or 'mini' in self.model_name
+            'is_nano_version': 'nano' in self.model_name or 'mini' in self.model_name,
+            'api_version': 'gpt-5' if is_gpt5_model else 'gpt-4'
         }
+        
+        # GPT-5 특별 기능들
+        if is_gpt5_model:
+            info.update({
+                'supports_reasoning': True,
+                'supports_verbosity_control': True,
+                'supports_effort_control': True,
+                'supports_encrypted_reasoning': True
+            })
+        
+        return info

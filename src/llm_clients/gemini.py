@@ -1,13 +1,14 @@
 """
-Gemini 클라이언트 구현
+Gemini 클라이언트 구현 (최신 API)
 
-Google의 Gemini 모델들 (Flash, Pro 등)을 지원하는 클라이언트
+Google의 Gemini 모델들 (2.5-Pro, 2.5-Flash 등)을 지원하는 클라이언트
 """
 
 import time
+import os
 from typing import List, Dict, Any, Optional
-import google.generativeai as genai
-from google.generativeai.types import HarmCategory, HarmBlockThreshold
+from google import genai
+from google.genai import types
 
 from .base import BaseAgentLLM, LLMRequest, LLMResponse, UsageStats
 from .exceptions import (
@@ -23,47 +24,47 @@ from .exceptions import (
 class GeminiClient(BaseAgentLLM):
     """Google Gemini LLM 클라이언트"""
     
-    # 지원하는 Gemini 모델들
+    # 지원하는 Gemini 모델들 (정확한 모델명)
     SUPPORTED_MODELS = {
-        'flash-2.5': 'gemini-2.0-flash-exp',
-        'flash-2.0': 'gemini-2.0-flash-exp',
-        'flash': 'gemini-1.5-flash',
-        'flash-1.5': 'gemini-1.5-flash',
-        'pro-2.0': 'gemini-2.0-flash-exp',  # Pro 2.0이 출시되면 업데이트 필요
-        'pro': 'gemini-1.5-pro',
-        'pro-1.5': 'gemini-1.5-pro',
-        'flash-lite': 'gemini-1.5-flash'  # 빠른 처리용
+        'pro-2.5': 'models/gemini-2.5-pro',
+        'flash-2.5': 'models/gemini-2.5-flash',
+        'flash-lite': 'models/gemini-2.5-flash-lite',
+        'pro': 'models/gemini-2.5-pro',  # 기본값
+        'flash': 'models/gemini-2.5-flash',  # 기본값
+        # 호환성을 위한 이전 버전들 (필요시)
+        'pro-1.5': 'models/gemini-1.5-pro',
+        'flash-1.5': 'models/gemini-1.5-flash'
     }
     
-    # 모델별 토큰 가격 (USD per 1M tokens) - 2024년 기준
+    # 모델별 토큰 가격 (USD per 1M tokens) - 2025년 기준
     MODEL_PRICING = {
-        'gemini-2.0-flash-exp': {'input': 0.075, 'output': 0.3},
-        'gemini-1.5-flash': {'input': 0.075, 'output': 0.3}, 
-        'gemini-1.5-pro': {'input': 1.25, 'output': 5.0}
+        'models/gemini-2.5-pro': {'input': 1.25, 'output': 5.0},
+        'models/gemini-2.5-flash': {'input': 0.075, 'output': 0.3},
+        'models/gemini-2.5-flash-lite': {'input': 0.05, 'output': 0.2},  # Lite 버전은 더 저렴
+        'models/gemini-1.5-pro': {'input': 1.25, 'output': 5.0},
+        'models/gemini-1.5-flash': {'input': 0.075, 'output': 0.3}
     }
     
     def __init__(self, model_name: str, api_key: str, **config):
         """
-        Gemini 클라이언트 초기화
+        Gemini 클라이언트 초기화 (최신 API)
         
         Args:
-            model_name: 사용할 Gemini 모델명 (flash-2.5, pro-2.0 등)
+            model_name: 사용할 Gemini 모델명 (pro-2.5, flash-2.5 등)
             api_key: Google AI API 키
             **config: 추가 설정 (max_tokens, temperature 등)
         """
-        super().__init__("gemini", model_name, api_key, **config)
-        
-        # Google AI 클라이언트 초기화
-        genai.configure(api_key=api_key)
-        
-        # 실제 모델명 매핑
+        # 실제 모델명 매핑 먼저 확인
         if model_name not in self.SUPPORTED_MODELS:
             raise ModelNotSupportedError("gemini", model_name)
         
         self.actual_model_name = self.SUPPORTED_MODELS[model_name]
         
-        # Gemini 모델 인스턴스 생성
-        self.model = genai.GenerativeModel(self.actual_model_name)
+        # 부모 클래스 초기화
+        super().__init__("gemini", model_name, api_key, **config)
+        
+        # 최신 Google AI 클라이언트 초기화
+        self.client = genai.Client(api_key=api_key)
         
         # 기본 설정
         self.default_max_tokens = config.get('max_tokens', 4000)
@@ -73,13 +74,8 @@ class GeminiClient(BaseAgentLLM):
         if 'flash' in model_name:
             self.default_temperature = 0.4
         
-        # 안전 설정 (금융 분석에 필요한 자유도 확보)
-        self.safety_settings = {
-            HarmCategory.HARM_CATEGORY_HATE_SPEECH: HarmBlockThreshold.BLOCK_NONE,
-            HarmCategory.HARM_CATEGORY_HARASSMENT: HarmBlockThreshold.BLOCK_NONE,
-            HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT: HarmBlockThreshold.BLOCK_NONE,
-            HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT: HarmBlockThreshold.BLOCK_MEDIUM_AND_ABOVE
-        }
+        # 섹터 리서치용 Google Search 도구 활성화 여부
+        self.enable_search = config.get('enable_search', False)
     
     def validate_config(self) -> bool:
         """Gemini 클라이언트 설정 검증"""
@@ -89,25 +85,8 @@ class GeminiClient(BaseAgentLLM):
         if self.model_name not in self.SUPPORTED_MODELS:
             raise ConfigurationError("gemini", f"지원하지 않는 모델: {self.model_name}")
         
-        # API 키 유효성 간단 체크
-        try:
-            # 테스트 요청으로 API 키 검증
-            response = self.model.generate_content(
-                "Hello",
-                generation_config=genai.types.GenerationConfig(
-                    max_output_tokens=10,
-                    temperature=0.1
-                ),
-                safety_settings=self.safety_settings
-            )
-            return True
-        except Exception as e:
-            if "api_key" in str(e).lower() or "authentication" in str(e).lower():
-                raise ConfigurationError("gemini", "유효하지 않은 API 키")
-            else:
-                # 네트워크 오류 등은 일시적일 수 있으므로 경고만 출력
-                print(f"Gemini API 연결 확인 실패 (일시적일 수 있음): {e}")
-                return True
+        # API 키 유효성 간단 체크는 실제 사용할 때 검증
+        return True
     
     def get_supported_models(self) -> List[str]:
         """지원하는 Gemini 모델 목록 반환"""
@@ -133,49 +112,82 @@ class GeminiClient(BaseAgentLLM):
         return input_cost + output_cost
     
     def generate_response(self, request: LLMRequest) -> LLMResponse:
-        """Gemini로부터 응답 생성"""
+        """최신 Gemini API로 응답 생성"""
         start_time = time.time()
         
         try:
-            # 프롬프트 구성 (시스템 프롬프트가 있으면 결합)
-            full_prompt = request.prompt
+            # 구조화된 메시지 구성
+            user_content = request.prompt
             if request.system_prompt:
-                full_prompt = f"{request.system_prompt}\n\n{request.prompt}"
+                user_content = f"{request.system_prompt}\n\n{request.prompt}"
+            
+            contents = [
+                types.Content(
+                    role="user",
+                    parts=[types.Part.from_text(text=user_content)]
+                )
+            ]
+            
+            # 도구 설정 (섹터 리서치용 Google Search)
+            tools = []
+            if (request.agent_type == "sector_researcher" or 
+                request.agent_type == "fundamental_fetcher" or 
+                self.enable_search):
+                tools.append(types.Tool(googleSearch=types.GoogleSearch()))
             
             # 생성 설정
-            generation_config = genai.types.GenerationConfig(
-                max_output_tokens=request.max_tokens or self.default_max_tokens,
-                temperature=request.temperature or self.default_temperature
-            )
+            config_kwargs = {
+                "tools": tools if tools else None
+            }
             
-            # 에이전트 타입별 특별 설정
+            # 시스템 지시사항 추가 (에이전트별 특화)
+            system_instructions = []
             if request.agent_type == "fundamental_analyst":
-                # 펀더멘털 분석은 더 긴 컨텍스트 처리 능력 활용
-                generation_config.max_output_tokens = min(8000, generation_config.max_output_tokens)
+                system_instructions.append(
+                    types.Part.from_text("당신은 전문적인 펀더멘털 분석가입니다. 재무 데이터를 정확히 분석하고 투자 가치를 평가하세요.")
+                )
             elif request.agent_type == "risk_analyst":
-                # 리스크 분석은 정확성이 중요
-                generation_config.temperature = 0.2
+                system_instructions.append(
+                    types.Part.from_text("당신은 위험 관리 전문가입니다. 포트폴리오 리스크를 정확히 평가하고 위험 요소를 식별하세요.")
+                )
+            elif request.agent_type == "sector_researcher":
+                system_instructions.append(
+                    types.Part.from_text("당신은 섹터 리서치 전문가입니다. 실시간 시장 정보를 활용하여 섹터 트렌드를 분석하세요.")
+                )
             
-            # Gemini API 호출
-            response = self.model.generate_content(
-                full_prompt,
-                generation_config=generation_config,
-                safety_settings=self.safety_settings
-            )
+            if system_instructions:
+                config_kwargs["system_instruction"] = system_instructions
+            
+            # 선택적 파라미터 추가
+            if request.max_tokens:
+                config_kwargs["max_output_tokens"] = min(request.max_tokens, 8000)
+            if request.temperature is not None:
+                config_kwargs["temperature"] = max(0.0, min(request.temperature, 1.0))
+            
+            # 에이전트별 특별 설정
+            if request.agent_type == "risk_analyst":
+                config_kwargs["temperature"] = 0.2  # 정확성 중시
+            elif request.agent_type == "fundamental_analyst":
+                # Thinking Config 활성화 (복잡한 분석용)
+                config_kwargs["thinking_config"] = types.ThinkingConfig(thinking_budget=-1)
+            
+            generate_content_config = types.GenerateContentConfig(**config_kwargs)
+            
+            # 최신 Gemini API 호출
+            response_chunks = list(self.client.models.generate_content_stream(
+                model=self.actual_model_name,
+                contents=contents,
+                config=generate_content_config
+            ))
             
             end_time = time.time()
             response_time = end_time - start_time
             
-            # 응답 내용 추출
-            content = ""
-            if response.text:
-                content = response.text
-            elif response.candidates:
-                # 안전 필터에 의해 차단되었을 가능성
-                content = "응답이 안전 필터에 의해 차단되었습니다."
+            # 스트리밍 응답 결합
+            content = "".join(chunk.text for chunk in response_chunks if chunk.text)
             
-            # 토큰 사용량 계산 (Gemini는 정확한 토큰 카운트를 제공하지 않으므로 추정)
-            input_tokens = self._estimate_tokens(full_prompt)
+            # 토큰 사용량 추정
+            input_tokens = self._estimate_tokens(user_content)
             output_tokens = self._estimate_tokens(content)
             total_tokens = input_tokens + output_tokens
             
@@ -185,7 +197,7 @@ class GeminiClient(BaseAgentLLM):
                    (output_tokens / 1000000) * pricing['output'])
             
             # 응답 품질 검증
-            confidence_score = self._calculate_confidence_score(content, request, response)
+            confidence_score = self._calculate_confidence_score(content, request)
             
             llm_response = LLMResponse(
                 content=content,
@@ -198,8 +210,9 @@ class GeminiClient(BaseAgentLLM):
                     'input_tokens': input_tokens,
                     'output_tokens': output_tokens,
                     'model_alias': self.model_name,
-                    'safety_ratings': response.candidates[0].safety_ratings if response.candidates else None,
-                    'finish_reason': response.candidates[0].finish_reason if response.candidates else None
+                    'tools_used': len(tools),
+                    'has_search': bool(tools),
+                    'stream_chunks': len(response_chunks)
                 }
             )
             
@@ -236,7 +249,7 @@ class GeminiClient(BaseAgentLLM):
         else:
             return int(word_count / 0.75)
     
-    def _calculate_confidence_score(self, content: str, request: LLMRequest, response) -> float:
+    def _calculate_confidence_score(self, content: str, request: LLMRequest) -> float:
         """응답의 신뢰도 점수 계산 (0.0 ~ 1.0)"""
         if not content or len(content.strip()) < 10:
             return 0.0
@@ -284,9 +297,11 @@ class GeminiClient(BaseAgentLLM):
     def get_model_info(self) -> Dict[str, Any]:
         """현재 사용 중인 모델 정보 반환"""
         context_lengths = {
-            'gemini-2.0-flash-exp': 1000000,  # 1M tokens
-            'gemini-1.5-flash': 1000000,
-            'gemini-1.5-pro': 2000000  # 2M tokens
+            'models/gemini-2.5-pro': 2000000,        # 2M tokens
+            'models/gemini-2.5-flash': 1000000,      # 1M tokens
+            'models/gemini-2.5-flash-lite': 1000000, # 1M tokens
+            'models/gemini-1.5-pro': 2000000,        # 2M tokens  
+            'models/gemini-1.5-flash': 1000000       # 1M tokens
         }
         
         return {
@@ -295,8 +310,11 @@ class GeminiClient(BaseAgentLLM):
             'actual_model': self.actual_model_name,
             'pricing': self.MODEL_PRICING.get(self.actual_model_name),
             'max_context_length': context_lengths.get(self.actual_model_name, 1000000),
-            'supports_system_prompt': False,  # Gemini는 별도 시스템 프롬프트 없음
+            'supports_system_prompt': True,  # 최신 API는 시스템 지시사항 지원
             'supports_multimodal': True,
+            'supports_search': True,  # Google Search 도구 지원
+            'supports_streaming': True,  # 스트리밍 응답 지원
+            'supports_thinking': True,  # Thinking Config 지원
             'is_flash_version': 'flash' in self.model_name,
-            'safety_settings_enabled': True
+            'api_version': 'v2.5'  # 최신 API 버전
         }
