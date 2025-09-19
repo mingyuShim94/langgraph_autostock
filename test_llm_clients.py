@@ -7,12 +7,29 @@ LLM 클라이언트 연결 테스트 스크립트
 
 import os
 import sys
+from dotenv import load_dotenv
 
-# 환경 변수에서 API 키 읽기 (로컬에서 설정 필요)
-# export ANTHROPIC_API_KEY="your_key_here"
-# export OPENAI_API_KEY="your_key_here" 
-# export GOOGLE_AI_API_KEY="your_key_here"
-# export PERPLEXITY_API_KEY="your_key_here"
+# .env 파일에서 환경 변수 로드
+load_dotenv()
+
+# API 키 확인
+required_keys = [
+    'ANTHROPIC_API_KEY',
+    'OPENAI_API_KEY', 
+    'GOOGLE_AI_API_KEY',
+    'PERPLEXITY_API_KEY'
+]
+
+missing_keys = [key for key in required_keys if not os.getenv(key)]
+if missing_keys:
+    print("❌ 다음 환경변수가 설정되지 않았습니다:")
+    for key in missing_keys:
+        print(f"   - {key}")
+    print("\n📝 설정 방법:")
+    print("1. .env.example 파일을 .env로 복사")
+    print("2. .env 파일에 실제 API 키들을 입력")
+    print("3. 다시 테스트 실행")
+    sys.exit(1)
 
 # 프로젝트 경로 추가
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))

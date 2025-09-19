@@ -25,13 +25,33 @@ mkdir -p ~/KIS/config
 # ~/KIS/config/kis_devlp.yaml 파일에 API 키 설정
 ```
 
-### 2. KIS API 연결 테스트
+### 2. LLM API 키 설정
 
 ```bash
+# .env 파일 생성
+cp .env.example .env
+
+# .env 파일에 실제 API 키들을 입력
+nano .env
+```
+
+필수 LLM API 키들:
+- `ANTHROPIC_API_KEY` (Claude)
+- `OPENAI_API_KEY` (GPT)  
+- `GOOGLE_AI_API_KEY` (Gemini)
+- `PERPLEXITY_API_KEY` (Perplexity)
+
+### 3. 시스템 테스트
+
+```bash
+# LLM 클라이언트 통합 테스트
+uv run python test_llm_clients.py
+
+# KIS API 연결 테스트
 python test_kis_auth.py
 ```
 
-### 3. 개발 진행 상황 확인
+### 4. 개발 진행 상황 확인
 
 현재 진행 상황은 [개발 로드맵](docs/development_roadmap.md)에서 확인할 수 있습니다.
 
@@ -51,6 +71,7 @@ langgraph_study/
 ├── logs/                        # 로그 파일
 ├── tests/                       # 테스트 코드
 └── docs/                        # 문서
+    ├── plan/                    # 개발 계획서들
     ├── development_roadmap.md   # 개발 로드맵
     ├── kis_api_implementation_guide.md  # KIS API 구현 가이드
     └── all_architecture.md      # 전체 시스템 아키텍처
@@ -58,14 +79,30 @@ langgraph_study/
 
 ## 📋 개발 단계
 
-- **Phase 0**: 개발 환경 구축 ✅ **진행중**
-- **Phase 1**: 핵심 인프라 구축 (데이터베이스, KIS API 클라이언트)
-- **Phase 2**: 운영 그래프 구현 (6개 노드)
-- **Phase 3**: 성찰 그래프 구현 (4개 노드)  
-- **Phase 4**: 통합 테스트 및 최적화
+### 🎯 하이브리드 LLM 전략
+
+| 에이전트 | LLM 모델 | 용도 |
+|---------|---------|------|
+| **CIO Agent** | Claude Opus 4.1 | 최종 의사결정 및 종합 분석 |
+| **Technical Analyst** | GPT-5 | 차트 분석 및 기술적 지표 |
+| **Sector Researcher** | Perplexity sonar-pro | 실시간 시장 리서치 |
+| **Valuation Analyst** | Gemini 2.5 Flash | 펀더멘털 분석 |
+
+### 📊 진행 상황
+
+- **Phase 1.1**: 하이브리드 LLM 인프라 구축 ✅ **완료 (15.5%)**
+  - 다중 LLM 클라이언트 통합
+  - GPT-5 및 Claude 4 최신 모델 지원
+  - 에이전트별 최적화된 모델 매핑
+  - 비용 추적 및 성능 모니터링
+
+- **Phase 1.2**: 중앙 데이터베이스 확장 🔄 **다음 단계**
+- **Phase 2**: 전문가 팀 기반 운영 그래프 (9개 노드)
+- **Phase 3**: 성찰 및 자기 개조 그래프 (5개 노드)
+- **Phase 4**: 통합 테스트 및 검증
 - **Phase 5**: 프로덕션 배포
 
-자세한 내용은 [개발 로드맵](docs/development_roadmap.md) 참조
+자세한 내용은 [상세 개발 계획서](docs/plan/claude_detailed_development_plan(0919).md) 참조
 
 ## ⚠️ 주의사항
 
