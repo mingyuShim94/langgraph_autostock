@@ -1,0 +1,196 @@
+# 에이전트별 최적 LLM 매핑 설정
+# v2.0 하이브리드 LLM 전략 - 각 에이전트마다 최적화된 모델 사용
+
+agents:
+  # =============================================================================
+  # 포트폴리오 및 기본 작업 에이전트 (GPT-5 nano - 빠르고 경제적)
+  # =============================================================================
+  
+  portfolio_rebalancer:
+    provider: gpt
+    model: gpt-5-nano
+    temperature: 0.1  # 일관된 포트폴리오 진단 필요
+    max_tokens: 1000
+    description: "포트폴리오 진단 및 리밸런싱 필요도 분석"
+    
+  ticker_screener:
+    provider: gpt
+    model: gpt-5-nano
+    temperature: 0.2  # 기본 필터링 조건 적용
+    max_tokens: 1500
+    description: "기본 조건으로 후보 종목 리스트 필터링"
+    
+  allocator:
+    provider: gpt
+    model: gpt-5-nano
+    temperature: 0.1  # 정확한 자금 배분 필요
+    max_tokens: 800
+    description: "자금 관리 모델에 따른 투자 규모 결정"
+    
+  trade_planner:
+    provider: gpt
+    model: gpt-5-nano
+    temperature: 0.1  # 정확한 주문 계획 수립
+    max_tokens: 1000
+    description: "최종 투자 계획을 KIS API 주문 형식으로 변환"
+
+  # =============================================================================
+  # 실시간 시장 조사 에이전트 (Perplexity - 검색 특화)
+  # =============================================================================
+  
+  sector_researcher:
+    provider: perplexity
+    model: sonar-pro
+    temperature: 0.3  # 팩트 체크가 중요하므로 낮은 temperature
+    max_tokens: 3000
+    description: "실시간 웹 검색으로 유망 섹터 발굴 및 시장 트렌드 분석"
+
+  # =============================================================================
+  # 펀더멘털 분석 전문가 팀 (Gemini Flash - 긴 컨텍스트 처리)
+  # =============================================================================
+  
+  fundamental_fetcher:
+    provider: gemini
+    model: flash-lite
+    temperature: 0.4  # 데이터 수집 시 일정한 일관성 필요
+    max_tokens: 2000
+    description: "재무제표 및 공시 정보 수집 및 구조화"
+    
+  valuation_analyst:
+    provider: gemini
+    model: flash-2.5
+    temperature: 0.5  # 분석적 사고 허용
+    max_tokens: 4000
+    description: "DCF, PER, PBR 등 멀티플 밸류에이션 분석"
+    
+  flow_analyst:
+    provider: gemini
+    model: flash-2.5
+    temperature: 0.5  # 수급 분석의 창의적 해석 허용
+    max_tokens: 3000
+    description: "기관/외국인 수급 동향 및 자금 흐름 분석"
+    
+  risk_analyst:
+    provider: gemini
+    model: flash-2.5
+    temperature: 0.3  # 리스크 평가는 보수적 접근
+    max_tokens: 3000
+    description: "포트폴리오 위험도 측정 및 리스크 관리"
+
+  # =============================================================================
+  # 기술적 분석 에이전트 (GPT-5 - 정확한 계산 및 차트 분석)
+  # =============================================================================
+  
+  technical_analyst:
+    provider: gpt
+    model: gpt-5
+    temperature: 0.2  # 정확한 기술적 지표 계산
+    max_tokens: 3000
+    description: "차트 패턴, 기술적 지표 분석 및 매매 타이밍 최적화"
+
+  # =============================================================================
+  # 최종 의사결정 에이전트 (Claude Opus - 최고 추론 능력)
+  # =============================================================================
+  
+  cio:
+    provider: claude
+    model: opus-4.1
+    temperature: 0.6  # 창의적 종합 판단 허용
+    max_tokens: 4000
+    description: "4개 전문가 리포트 종합 분석 및 최종 투자 결정"
+
+  # =============================================================================
+  # 성찰 및 자기 개조 시스템 (Claude Opus - 메타 인지 능력)
+  # =============================================================================
+  
+  performance_analyzer:
+    provider: claude
+    model: opus-4.1
+    temperature: 0.4  # 객관적 성과 분석
+    max_tokens: 5000
+    description: "주간/월간 거래 성과 집계 및 에이전트별 기여도 분석"
+    
+  failure_attribution:
+    provider: claude
+    model: opus-4.1
+    temperature: 0.3  # 정확한 실패 원인 분석
+    max_tokens: 4000
+    description: "손실 거래의 근본 원인 분석 및 책임 에이전트 특정"
+    
+  model_benchmarker:
+    provider: claude
+    model: opus-4.1
+    temperature: 0.2  # 객관적 모델 성능 비교
+    max_tokens: 3000
+    description: "대체 LLM 모델들의 성과 비교 및 벤치마킹"
+    
+  strategy_optimizer:
+    provider: claude
+    model: opus-4.1
+    temperature: 0.5  # 새로운 전략 생성을 위한 창의성
+    max_tokens: 4000
+    description: "최적 개선 전략 생성 및 시스템 진화 방향 결정"
+
+# =============================================================================
+# 글로벌 설정
+# =============================================================================
+
+global_settings:
+  # 비용 관리
+  cost_limit_daily: 50.0     # 일일 비용 한도 (USD)
+  cost_limit_weekly: 300.0   # 주간 비용 한도 (USD)
+  cost_alert_threshold: 0.8  # 경고 임계값 (80%)
+  
+  # API 요청 설정
+  retry_attempts: 3          # 실패 시 재시도 횟수
+  timeout_seconds: 60        # 요청 타임아웃
+  enable_caching: true       # 응답 캐싱 활성화
+  cache_ttl_minutes: 30      # 캐시 유효 시간
+  
+  # 로깅 및 모니터링
+  log_all_requests: true     # 모든 LLM 요청 로깅
+  log_level: "INFO"          # 로그 레벨
+  performance_monitoring: true # 성능 모니터링 활성화
+  
+  # 자기 개조 시스템 설정
+  auto_model_update: true    # 자동 모델 업데이트 허용
+  update_approval_required: false # 모델 변경 시 승인 필요 여부
+  min_requests_for_evaluation: 50 # 성능 평가 최소 요청 수
+  performance_evaluation_interval_hours: 168 # 성능 평가 주기 (1주일)
+
+# =============================================================================
+# 에이전트별 역할 및 기대 성과 설명
+# =============================================================================
+
+agent_descriptions:
+  workflow_order:
+    - "portfolio_rebalancer"     # 1. 포트폴리오 진단
+    - "sector_researcher"        # 2. 섹터 리서치  
+    - "ticker_screener"          # 3. 종목 스크리닝
+    - "fundamental_fetcher"      # 4. 데이터 수집
+    - "valuation_analyst"        # 5a. 밸류에이션 분석 (병렬)
+    - "flow_analyst"            # 5b. 자금 흐름 분석 (병렬)
+    - "risk_analyst"            # 5c. 리스크 분석 (병렬)
+    - "technical_analyst"       # 5d. 기술적 분석 (병렬)
+    - "cio"                     # 6. 최종 의사결정
+    - "allocator"               # 7. 자금 배분
+    - "trade_planner"           # 8. 주문 계획
+    
+  reflection_workflow:
+    - "performance_analyzer"     # M1. 성과 분석
+    - "failure_attribution"      # M2. 실패 원인 분석
+    - "model_benchmarker"       # M2.5. 모델 벤치마킹
+    - "strategy_optimizer"      # M3. 전략 최적화
+
+# =============================================================================
+# 모델 업그레이드 히스토리 (자기 개조 시스템에서 업데이트)
+# =============================================================================
+
+model_evolution_history:
+  # 예시 히스토리 (실제 시스템에서 자동 생성됨)
+  # - timestamp: "2025-09-19T10:00:00Z"
+  #   agent: "technical_analyst"
+  #   old_model: "gpt-4o"
+  #   new_model: "gpt-5"
+  #   reason: "기술적 분석 정확도 15% 향상"
+  #   performance_improvement: 0.15

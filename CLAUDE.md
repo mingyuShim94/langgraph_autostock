@@ -4,89 +4,114 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-This is a **LangGraph-based autonomous trading system implementation** repository that demonstrates progressive AI agent development through 5 complexity levels. Currently implements **LV1 Observer** pattern with Korean Investment & Securities (KIS) API integration for real-time portfolio monitoring and news analysis.
+This is a **LangGraph-based autonomous trading system** that learns from its trading decisions and continuously improves. The system integrates with Korean Investment & Securities (KIS) API for real-time portfolio management, market analysis, and automated trading execution. The architecture features dual graph approach:
+
+- **Trading Graph**: 6-node operational workflow for real-time trading execution
+- **Reflection Graph**: 4-node learning system for continuous strategy improvement
+- **Central Database**: SQLite-based memory system storing all decisions and outcomes
+
+### Current Implementation Status
+- **Phase 2 Complete**: Trading Graph fully implemented with 6 operational nodes
+- **Phase 3 Planned**: Multi-agent specialist team with hybrid LLM strategy (see `docs/system_prd_0919.md`)
 
 ## Commands and Development
 
 ### Environment Setup
 ```bash
-# Install dependencies
+# Install dependencies using uv (preferred)
+uv sync
+
+# Alternative: pip install
 pip install -r requirements.txt
 
-# Set up environment variables (create .env file)
-cp .env.example .env  # Then edit with your API keys
+# Set up KIS API configuration (create config directory)
+mkdir -p ~/KIS/config
+# Configure ~/KIS/config/kis_devlp.yaml with your API keys
 ```
 
 ### Running the System
 ```bash
-# Run LV1 Observer (main entry point)
-python src/graph.py
+# Run main trading workflow (default: paper trading + mock mode)
+python src/trading_graph/main.py
 
-# Run individual tests
-pytest tests/test_langgraph_integration.py
-pytest tests/test_kis_client.py
-pytest tests/test_news_perplexity.py
+# Run with different configurations
+python src/trading_graph/main.py --env paper --live  # Paper trading with real API
+python src/trading_graph/main.py --env prod --live   # Production trading
+python src/trading_graph/main.py --test              # Test mode with validation
+python src/trading_graph/main.py --viz               # Display workflow visualization only
 
-# Debug KIS API connection
-python tests/debug_kis_api.py
+# Test KIS API connection
+python test_kis_auth.py
+python test_kis_auth_simple.py
 ```
 
-### Common Development Tasks
-- **Adding new nodes**: Extend `src/graph.py` with new node functions
-- **Modifying state**: Update schemas in `src/state.py`
-- **API integrations**: Add clients in `src/` (following `kis_client.py` pattern)
-- **Testing**: Create tests in `tests/` directory
+### Testing
+```bash
+# Run all tests
+pytest tests/
+
+# Run specific test categories
+python tests/test_kis_client.py
+python tests/test_database.py
+
+# Run individual test files with debug output
+python test_kis_debug.py
+```
+
+### Development Commands
+```bash
+# Test individual components
+python -c "from src.kis_client.client import get_kis_client; print('KIS Client OK')"
+python -c "from src.database.schema import db_manager; print('Database OK')"
+
+# Check system status
+python src/trading_graph/main.py --test  # Comprehensive system validation
+```
 
 ## Architecture and Core Components
 
-### Current Implementation (LV1 Observer)
-The system operates as a **sequential LangGraph workflow**:
+### Trading Graph Workflow (Phase 2 - Current)
+The system operates as a **sequential LangGraph workflow** with conditional branching:
 
-1. **Portfolio Fetching** (`fetch_portfolio_status`): KIS API integration for real-time account data
-2. **News Collection** (`collect_news_data`): Perplexity AI for stock-specific news analysis
-3. **Report Generation** (`generate_daily_report`): AI-powered portfolio briefing
+1. **`fetch_portfolio_status`**: KIS API integration for real-time account data
+2. **`analyze_market_conditions`**: Market analysis and opportunity/risk detection  
+3. **`generate_trading_plan`**: AI-powered decision engine with structured planning
+4. **`validate_trading_plan`**: Risk management and validation (conditional routing)
+5. **`execute_trading_plan`**: Order execution via KIS API (if validation passes)
+6. **`record_and_report`**: Database storage and comprehensive reporting
 
-### State Management (`src/state.py`)
-- **ObserverState**: Central TypedDict managing workflow state
-- **PortfolioStatus**: Real-time account and holdings data
-- **NewsData**: AI-processed news with sentiment analysis
-- **Pydantic Models**: Type-safe data validation throughout
+### State Management (`src/trading_graph/state.py`)
+- **`TradingState`**: Central TypedDict managing workflow state
+- **Structured Data Classes**: `PortfolioStatus`, `MarketAnalysis`, `TradingPlan`, `RiskValidation`, `ExecutionResult`
+- **State Update Helpers**: 11 helper functions for type-safe state updates
 
-### Key Classes and Files
-- **`src/graph.py`**: Main LangGraph workflow definition and execution
-- **`src/state.py`**: State schemas and update functions  
-- **`src/kis_client.py`**: KIS API wrapper with authentication
-- **`src/news_processor.py`**: Perplexity AI news analysis
-- **`config/settings.py`**: Centralized configuration management
+### Database Layer (`src/database/schema.py`)
+- **`DatabaseManager`**: Central CRUD operations for trade records
+- **`TradeRecord`**: Structured trade data with decision justification and market context
+- **Performance Tracking**: Automatic P&L calculation and trade statistics
 
-## API Integrations
+### KIS API Integration (`src/kis_client/client.py`)
+- **`KISClient`**: Main API client with authentication management
+- **Environment Support**: Paper trading vs production with automatic API endpoint selection
+- **Mock Mode**: Development/testing mode with simulated data
+- **Error Handling**: Robust fallback mechanisms and environment-specific error handling
 
-### KIS (Korea Investment & Securities) API
-- **Environment**: Supports both paper trading (`KIS_ENVIRONMENT=paper`) and production
-- **Authentication**: Automatic token management via `src/kis_auth.py`
-- **Configuration**: All credentials managed through `config/settings.py`
+## Planned Evolution (Phase 3)
 
-### News APIs
-- **Perplexity AI**: Real-time news search and analysis
-- **Naver News**: Korean market news (optional)
-- **Features**: Sentiment analysis, relevance scoring, importance ranking
+### Multi-Agent Specialist Team Architecture
+Based on `docs/system_prd_0919.md`, the system will evolve to:
 
-### LLM APIs
-- **OpenAI**: GPT models for analysis and reporting
-- **Google Gemini**: Alternative LLM provider (configured but not actively used)
+1. **Specialist Agents with Hybrid LLM Strategy**:
+   - **Portfolio Rebalancer** (GPT-5 nano): Portfolio diagnostics
+   - **Sector Research Agent** (Perplexity sonar-pro): Real-time market research  
+   - **Fundamental Analysts** (Gemini 2.5 Flash): Value, flow, and risk analysis
+   - **Technical Analyst** (GPT-5): Chart-based timing analysis
+   - **CIO Agent** (Claude Opus 4.1): Final decision synthesis
 
-## Development Progression (5-Level System)
-
-### Implemented: LV1 Observer Pattern
-- **Goal**: Portfolio monitoring and news briefing
-- **Pattern**: Sequential node execution (`A → B → C`)
-- **Features**: Data collection, analysis, reporting
-
-### Planned: LV2+ Patterns
-- **LV2 Rule-Follower**: Conditional trading based on technical indicators
-- **LV3 Strategist**: Multi-agent analysis with consensus decisions
-- **LV4 Fund Manager**: Portfolio optimization and risk management
-- **LV5 Master**: Self-learning system with performance feedback loops
+2. **Self-Modification Capabilities**:
+   - Performance attribution to specific agents
+   - Dynamic LLM model selection based on performance
+   - Automatic prompt optimization and model upgrades
 
 ## Configuration and Environment
 
@@ -101,79 +126,63 @@ KIS_PAPER_APP_KEY=your_paper_app_key
 KIS_PAPER_APP_SECRET=your_paper_secret
 KIS_PAPER_ACCOUNT_NUMBER=your_paper_account
 
-# Optional: Production KIS API
+# Production KIS API (Optional)
 KIS_APP_KEY=your_production_key
 KIS_APP_SECRET=your_production_secret
 KIS_ACCOUNT_NUMBER=your_production_account
 ```
 
-### Configuration Pattern
-- All settings centralized in `config/settings.py`
-- Environment-aware (development/production)
-- Automatic validation of required credentials
-- KIS-compatible configuration format
+### Configuration Files
+- **`config/settings.py`**: Centralized configuration management
+- **`~/KIS/config/kis_devlp.yaml`**: KIS API credentials (Git-ignored)
+- **`prompts/core_decision_prompt.md`**: AI decision-making instructions
 
-## Error Handling and Logging
+## Development Patterns
 
-### Exception Hierarchy
-- **`src/exceptions.py`**: Custom exception classes
-- **KISAPIError**: Specific to trading API failures
-- **NewsAPIError**: News collection failures
+### Adding New Trading Nodes
+1. **Function Signature**: `def node_name(state: TradingState) -> TradingState`
+2. **State Updates**: Use helper functions from `src/trading_graph/state.py`
+3. **Error Handling**: Catch exceptions and update state with error info using `add_error()`
+4. **Integration**: Add to workflow in `src/trading_graph/workflow.py`
 
-### Logging Strategy
-- **`src/logging_config.py`**: Centralized logging setup
-- **File logging**: `logs/` directory for persistence
-- **Console output**: Real-time execution feedback
+### KIS API Development
+- **Environment Handling**: Always support both `paper` and `prod` environments
+- **Mock Mode**: Implement mock responses for development/testing
+- **Error Recovery**: Use fallback mechanisms for API failures
+- **Authentication**: Leverage automatic token management in `KISClient`
+
+### Database Operations
+- **Trade Recording**: Use `TradeRecord` dataclass for structured data
+- **Performance Tracking**: Automatic P&L updates via `update_pnl()`
+- **Analytics**: Leverage `get_trade_statistics()` for performance analysis
 
 ## Testing Strategy
 
 ### Test Categories
-- **Integration tests**: Full workflow testing (`test_langgraph_integration.py`)
-- **API tests**: Individual service testing (`test_kis_client.py`, `test_news_perplexity.py`)
-- **Auth tests**: Credential and token management
-- **Mock tests**: Virtual trading simulation
+- **Unit Tests**: Individual component testing (`tests/test_*.py`)
+- **Integration Tests**: Full workflow testing via `--test` mode
+- **API Tests**: KIS client functionality (`test_kis_*.py` files)
+- **Mock Tests**: Virtual trading simulation with `mock_mode=True`
 
-### Running Tests
-```bash
-# All tests
-pytest
+### Safety and Risk Management
+- **Paper Trading Default**: All trading starts in simulation mode
+- **Explicit Production**: Must set `--env prod --live` for real trading
+- **Risk Validation**: Built-in position sizing and loss limits
+- **Conditional Execution**: Orders only execute after passing risk checks
 
-# Specific test categories
-pytest tests/test_kis_* -v
-pytest tests/test_news_* -v
-pytest tests/test_langgraph_* -v
-```
+## Key Implementation Files
 
-## Key Development Patterns
+### Core System
+- **`src/trading_graph/main.py`**: Primary execution entry point with CLI interface
+- **`src/trading_graph/workflow.py`**: LangGraph workflow definition and routing logic
+- **`src/trading_graph/nodes.py`**: All 6 trading workflow node implementations
+- **`src/trading_graph/state.py`**: State management and data structures
 
-### LangGraph Node Development
-1. **Function signature**: `def node_name(state: ObserverState) -> ObserverState`
-2. **State updates**: Use helper functions from `src/state.py`
-3. **Error handling**: Catch exceptions and update state with error info
-4. **Logging**: Print step-by-step progress for debugging
+### Infrastructure  
+- **`src/kis_client/client.py`**: KIS API client with authentication and error handling
+- **`src/database/schema.py`**: Database schema and CRUD operations
+- **`config/settings.py`**: Environment configuration and API settings
 
-### Adding New APIs
-1. **Client class**: Create in `src/` following `kis_client.py` pattern
-2. **Configuration**: Add settings to `config/settings.py`
-3. **State integration**: Update state schemas in `src/state.py`
-4. **Error handling**: Add custom exceptions to `src/exceptions.py`
-
-### Progressive Enhancement
-- Start with stub implementations for new features
-- Add real API integrations incrementally
-- Maintain backward compatibility with existing nodes
-- Follow the 5-level progression model for complexity
-
-## Security and Credentials
-
-### API Key Management
-- **Never commit credentials** to repository
-- **Use .env files** for local development
-- **Environment variables** for production deployment
-- **Validation checks** in settings for missing credentials
-
-### Trading Safety
-- **Paper trading default**: All trading starts in simulation mode
-- **Explicit production mode**: Must set `KIS_ENVIRONMENT=prod`
-- **Credential separation**: Different keys for paper vs production
-- **Amount limits**: Built-in safeguards for order sizes
+### Development Roadmap
+- **`docs/development_roadmap.md`**: Current progress and implementation details
+- **`docs/system_prd_0919.md`**: Next-generation multi-agent architecture plan
