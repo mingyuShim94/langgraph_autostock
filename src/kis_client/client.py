@@ -323,6 +323,173 @@ class KISClient:
         except Exception as e:
             raise KISClientError(f"주식 가격 조회 실패: {e}")
     
+    def get_detailed_portfolio(self) -> Dict[str, Any]:
+        """
+        상세 포트폴리오 정보 조회 (리밸런싱 에이전트용)
+        
+        Returns:
+            Dict: 상세 포트폴리오 정보
+        """
+        self._ensure_authenticated()
+        
+        if self.mock_mode:
+            return {
+                "account_info": {
+                    "total_cash": 1000000,
+                    "available_cash": 800000,
+                    "total_value": 2000000,
+                    "stock_value": 1000000
+                },
+                "holdings": [
+                    {
+                        "ticker": "005930",
+                        "name": "삼성전자",
+                        "quantity": 10,
+                        "avg_price": 75000,
+                        "current_price": 77000,
+                        "total_value": 770000,
+                        "pnl": 20000,
+                        "weight": 0.385  # 77만원 / 200만원
+                    },
+                    {
+                        "ticker": "000660", 
+                        "name": "SK하이닉스",
+                        "quantity": 3,
+                        "avg_price": 80000,
+                        "current_price": 76666,
+                        "total_value": 230000,
+                        "pnl": -10000,
+                        "weight": 0.115
+                    }
+                ],
+                "sector_allocation": {
+                    "기술주": {"value": 1000000, "weight": 0.5},
+                    "현금": {"value": 1000000, "weight": 0.5}
+                },
+                "portfolio_metrics": {
+                    "diversification_score": 0.6,
+                    "concentration_risk": 0.4,
+                    "rebalancing_needed": True
+                }
+            }
+        
+        try:
+            # 1. 계좌 정보 조회
+            account_info = self.get_account_balance()
+            
+            # 2. 보유 종목 상세 정보 조회
+            holdings = self.get_stock_holdings()
+            
+            # 3. 총 자산 가치 계산
+            total_value = account_info.get('total_value', 0) or 0
+            stock_value = sum(holding.get('total_value', 0) for holding in holdings)
+            
+            # 4. 각 종목의 포트폴리오 내 비중 계산
+            for holding in holdings:
+                holding_value = holding.get('total_value', 0) or 0
+                holding['weight'] = holding_value / total_value if total_value > 0 else 0
+            
+            # 5. 기본 포트폴리오 구조 반환
+            detailed_portfolio = {
+                "account_info": account_info,
+                "holdings": holdings,
+                "total_value": total_value,
+                "stock_value": stock_value,
+                "cash_value": account_info.get('total_cash', 0) or 0,
+                "timestamp": datetime.now().isoformat()
+            }
+            
+            return detailed_portfolio
+            
+        except Exception as e:
+            error_msg = f"상세 포트폴리오 조회 실패 - 환경: {self.environment}, 오류: {str(e)}"
+            self.logger.error(error_msg)
+            raise KISClientError(error_msg)
+    
+    def get_sector_allocation(self, holdings: List[Dict[str, Any]]) -> Dict[str, Dict[str, float]]:
+        """
+        섹터별 자산 배분 계산
+        
+        Args:
+            holdings: 보유 종목 정보 리스트
+            
+        Returns:
+            Dict: 섹터별 배분 정보
+        """
+        from ..utils.sector_classifier import get_sector_classifier
+        
+        sector_classifier = get_sector_classifier()
+        sector_allocation = {}
+        total_stock_value = sum(holding['total_value'] for holding in holdings)
+        
+        # 섹터별 집계
+        for holding in holdings:
+            ticker = holding['ticker']
+            sector = sector_classifier.classify_ticker(ticker)
+            sector_name = sector_classifier.get_sector_info(sector).sector_name_kr
+            
+            if sector_name not in sector_allocation:
+                sector_allocation[sector_name] = {
+                    "value": 0,
+                    "weight": 0,
+                    "stock_count": 0
+                }
+            
+            sector_allocation[sector_name]["value"] += holding['total_value']
+            sector_allocation[sector_name]["stock_count"] += 1
+        
+        # 비중 계산
+        for sector_name, allocation in sector_allocation.items():
+            allocation["weight"] = allocation["value"] / total_stock_value if total_stock_value > 0 else 0
+        
+        return sector_allocation
+    
+    def calculate_portfolio_metrics(self, detailed_portfolio: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        포트폴리오 지표 계산
+        
+        Args:
+            detailed_portfolio: 상세 포트폴리오 정보
+            
+        Returns:
+            Dict: 계산된 포트폴리오 지표
+        """
+        from ..utils.portfolio_analyzer import get_portfolio_analyzer
+        
+        analyzer = get_portfolio_analyzer()
+        
+        holdings = detailed_portfolio.get('holdings', [])
+        cash_balance = detailed_portfolio.get('cash_value', 0)
+        total_value = detailed_portfolio.get('total_value', 0)
+        
+        # 포트폴리오 분석 실행
+        metrics = analyzer.analyze_portfolio(holdings, cash_balance, total_value)
+        
+        # 결과를 딕셔너리로 변환
+        return {
+            "total_value": metrics.total_value,
+            "cash_ratio": metrics.cash_ratio,
+            "stock_ratio": metrics.stock_ratio,
+            "total_pnl": metrics.total_pnl,
+            "total_pnl_rate": metrics.total_pnl_rate,
+            "diversification_score": metrics.diversification_score,
+            "concentration_risk": metrics.concentration_risk,
+            "herfindahl_index": metrics.herfindahl_index,
+            "sector_count": metrics.sector_count,
+            "largest_sector_weight": metrics.largest_sector_weight,
+            "rebalancing_score": metrics.rebalancing_score,
+            "rebalancing_priority": metrics.rebalancing_priority,
+            "sector_allocation": [
+                {
+                    "sector_name": alloc.sector_name,
+                    "weight": alloc.weight,
+                    "total_value": alloc.total_value,
+                    "stock_count": alloc.stock_count
+                }
+                for alloc in metrics.sector_allocation
+            ]
+        }
+    
     def get_trading_volume_rank(self, limit: int = 20) -> List[Dict[str, Any]]:
         """
         거래량 순위 조회

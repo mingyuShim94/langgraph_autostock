@@ -8,6 +8,7 @@ import yaml
 import os
 from typing import Dict, Any, Optional, Union
 from pathlib import Path
+from dotenv import load_dotenv
 
 from .base import BaseAgentLLM
 from .claude import ClaudeClient
@@ -62,6 +63,9 @@ class LLMClientFactory:
     
     def _load_api_keys(self) -> None:
         """환경 변수에서 API 키 로드"""
+        # .env 파일 자동 로드
+        load_dotenv()
+        
         self.api_keys = {
             'claude': os.getenv('ANTHROPIC_API_KEY'),
             'gpt': os.getenv('OPENAI_API_KEY'),

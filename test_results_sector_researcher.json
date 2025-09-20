@@ -1,0 +1,48 @@
+{
+  "timestamp": "2025-09-20T14:58:00.184518",
+  "total_tests": 8,
+  "passed_tests": 8,
+  "success_rate": 100.0,
+  "test_results": [
+    {
+      "name": "기본 기능 테스트",
+      "passed": true,
+      "execution_time": 0.019491910934448242
+    },
+    {
+      "name": "섹터 분석 (Mock 모드)",
+      "passed": true,
+      "execution_time": 22.0834481716156
+    },
+    {
+      "name": "섹터 리서치 엔진 테스트",
+      "passed": true,
+      "execution_time": 0.00013327598571777344
+    },
+    {
+      "name": "프롬프트 생성 테스트",
+      "passed": true,
+      "execution_time": 0.00013017654418945312
+    },
+    {
+      "name": "에러 처리 테스트",
+      "passed": true,
+      "execution_time": 0.00034689903259277344
+    },
+    {
+      "name": "출력 검증 테스트",
+      "passed": true,
+      "execution_time": 22.223140716552734
+    },
+    {
+      "name": "캐싱 시스템 테스트",
+      "passed": true,
+      "execution_time": 19.602383852005005
+    },
+    {
+      "name": "LLM 통합 테스트 (API 키 있는 경우)",
+      "passed": true,
+      "execution_time": 16.616147994995117
+    }
+  ]
+}

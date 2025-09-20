@@ -44,6 +44,7 @@ class LLMRequest:
     max_tokens: Optional[int] = None
     system_prompt: Optional[str] = None
     context: Optional[Dict[str, Any]] = None
+    metadata: Optional[Dict[str, Any]] = None
 
 
 class BaseAgentLLM(ABC):
