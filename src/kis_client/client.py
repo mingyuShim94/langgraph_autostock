@@ -643,6 +643,62 @@ class KISClient:
                 
         except Exception as e:
             raise KISClientError(f"매도 주문 실패: {e}")
+    
+    def inquire_psbl_order(
+        self,
+        pdno: str,
+        ord_unpr: str,
+        ord_dvsn: str = "01",
+        cma_evlu_amt_icld_yn: str = "N",
+        ovrs_icld_yn: str = "N"
+    ) -> pd.DataFrame:
+        """
+        매수가능 조회 (거래가능 여부 확인용)
+        
+        Args:
+            pdno: 종목코드 (6자리)
+            ord_unpr: 주문단가
+            ord_dvsn: 주문구분 (01: 시장가)
+            cma_evlu_amt_icld_yn: CMA평가금액포함여부
+            ovrs_icld_yn: 해외포함여부
+            
+        Returns:
+            pd.DataFrame: 매수가능 조회 결과
+            
+        Raises:
+            KISClientError: API 호출 실패 시
+        """
+        self._ensure_authenticated()
+        
+        if self.mock_mode:
+            # 모의 모드에서는 기본적으로 거래가능으로 반환
+            mock_data = {
+                'pdno': [pdno],
+                'ord_psbl_qty': ['100'],  # 매수가능수량
+                'nrcvb_buy_amt': ['1000000'],  # 미수없는매수금액
+                'max_buy_amt': ['1000000']  # 최대매수금액
+            }
+            return pd.DataFrame(mock_data)
+        
+        try:
+            trenv = ka.getTREnv()
+            
+            # inquire_psbl_order API 호출
+            result_df = inquire_psbl_order(
+                env_dv="demo" if self.environment == "paper" else "real",
+                cano=trenv.my_acct,
+                acnt_prdt_cd=trenv.my_prod,
+                pdno=pdno,
+                ord_unpr=ord_unpr,
+                ord_dvsn=ord_dvsn,
+                cma_evlu_amt_icld_yn=cma_evlu_amt_icld_yn,
+                ovrs_icld_yn=ovrs_icld_yn
+            )
+            
+            return result_df
+            
+        except Exception as e:
+            raise KISClientError(f"매수가능 조회 실패 ({pdno}): {e}")
 
 
 # 전역 KIS 클라이언트 인스턴스 (싱글톤 패턴)

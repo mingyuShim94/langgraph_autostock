@@ -201,15 +201,43 @@ class GPTClient(BaseAgentLLM):
             
             # 응답 내용 추출 (GPT-5 vs GPT-4 구분)
             if is_gpt5_model:
-                # GPT-5 새로운 응답 구조
+                # GPT-5 새로운 응답 구조 - 다양한 구조 시도
                 content = ""
                 if hasattr(response, 'choices') and response.choices:
-                    # GPT-5 응답에서 content 추출 (구조가 변경될 수 있음)
                     choice = response.choices[0]
+                    # 여러 가능한 구조 확인
                     if hasattr(choice, 'message') and hasattr(choice.message, 'content'):
                         content = choice.message.content or ""
                     elif hasattr(choice, 'text'):
                         content = choice.text or ""
+                    elif hasattr(choice, 'content'):
+                        content = choice.content or ""
+                elif hasattr(response, 'output'):
+                    # 새로운 GPT-5 output 구조
+                    output = response.output
+                    if hasattr(output, 'content'):
+                        content = output.content or ""
+                    elif hasattr(output, 'text'):
+                        content = output.text or ""
+                elif hasattr(response, 'output_text'):
+                    content = response.output_text or ""
+                elif hasattr(response, 'text'):
+                    content = response.text or ""
+                elif hasattr(response, 'content'):
+                    content = response.content or ""
+                
+                # 디버깅용 로그
+                if not content:
+                    print(f"GPT-5 response.output_text: {getattr(response, 'output_text', 'NONE')}")
+                    print(f"GPT-5 response.text: {getattr(response, 'text', 'NONE')}")
+                    if hasattr(response, 'output'):
+                        print(f"GPT-5 response.output: {response.output}")
+                    
+                    # 강제로 output_text나 text 사용
+                    if hasattr(response, 'output_text') and response.output_text:
+                        content = str(response.output_text)
+                    elif hasattr(response, 'text') and response.text:
+                        content = str(response.text)
                 
                 # GPT-5 토큰 사용량 (응답 구조에 따라 조정 필요)
                 if hasattr(response, 'usage'):

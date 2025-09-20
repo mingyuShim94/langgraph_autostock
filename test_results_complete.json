@@ -1,0 +1,24 @@
+{
+  "timestamp": "2025-09-20T17:03:22.028462",
+  "total_time": 25.731785774230957,
+  "success_rate": 33.33333333333333,
+  "tests": [
+    {
+      "name": "데이터 엔진 성능",
+      "success": true
+    },
+    {
+      "name": "Gemini AI 통합",
+      "success": false
+    },
+    {
+      "name": "펀더멘털 페처 에이전트",
+      "success": false
+    }
+  ],
+  "summary": {
+    "total": 3,
+    "passed": 1,
+    "failed": 2
+  }
+}

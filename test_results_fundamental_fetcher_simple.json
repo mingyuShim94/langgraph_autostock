@@ -1,0 +1,24 @@
+{
+  "timestamp": "2025-09-20T16:47:35.179980",
+  "test_type": "fundamental_fetcher_simple",
+  "total_tests": 3,
+  "passed_tests": 3,
+  "success_rate": 100.0,
+  "test_results": [
+    {
+      "name": "데이터 엔진 테스트",
+      "passed": true,
+      "execution_time": 0.39090919494628906
+    },
+    {
+      "name": "데이터 구조 테스트",
+      "passed": true,
+      "execution_time": 2.7894973754882812e-05
+    },
+    {
+      "name": "Mock 데이터 품질 테스트",
+      "passed": true,
+      "execution_time": 0.000942230224609375
+    }
+  ]
+}

@@ -7,8 +7,8 @@ Google의 Gemini 모델들 (2.5-Pro, 2.5-Flash 등)을 지원하는 클라이언
 import time
 import os
 from typing import List, Dict, Any, Optional
-from google import genai
-from google.genai import types
+import google.generativeai as genai
+from google.generativeai import types
 
 from .base import BaseAgentLLM, LLMRequest, LLMResponse, UsageStats
 from .exceptions import (

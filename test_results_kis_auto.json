@@ -1,0 +1,19 @@
+{
+  "timestamp": "2025-09-20T16:58:10.373606",
+  "tests": [
+    {
+      "name": "KIS API 기본 연동",
+      "success": true
+    },
+    {
+      "name": "펀더멘털 데이터 엔진",
+      "success": true
+    }
+  ],
+  "success_rate": 100.0,
+  "summary": {
+    "total": 2,
+    "passed": 2,
+    "failed": 0
+  }
+}
